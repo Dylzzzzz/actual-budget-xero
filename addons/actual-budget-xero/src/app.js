@@ -264,6 +264,7 @@ class ActualXeroSyncApp {
         if (result.success) {
           res.json({
             message: result.message,
+            syncId: Date.now().toString(), // Simple sync ID for tracking
             timestamp: new Date().toISOString()
           });
         } else {
@@ -279,6 +280,27 @@ class ActualXeroSyncApp {
           timestamp: new Date().toISOString()
         });
       }
+    });
+
+    // Sync progress endpoint
+    this.app.get('/api/sync/progress/:syncId', (req, res) => {
+      // For now, return a simple completed status since we don't have real-time progress tracking
+      res.json({
+        syncId: req.params.syncId,
+        status: 'completed',
+        progress: 100,
+        message: 'Sync completed',
+        processed: 0
+      });
+    });
+
+    // Current sync status endpoint
+    this.app.get('/api/sync/current-status', (req, res) => {
+      res.json({
+        syncing: false,
+        reprocessing: false,
+        lastSync: null
+      });
     });
 
     // Log monitoring endpoints
