@@ -230,6 +230,29 @@ class ActualXeroSyncApp {
       });
     });
 
+    // Configuration details endpoint
+    this.app.get('/api/config/details', (req, res) => {
+      res.json({
+        actual_budget_url: this.config.actual_budget_url,
+        business_category_group_name: this.config.business_category_group_name,
+        business_category_group_id: this.config.business_category_group_id,
+        sync_schedule: this.config.sync_schedule,
+        sync_days_back: this.config.sync_days_back,
+        batch_size: this.config.batch_size,
+        xano_rate_limit: this.config.xano_rate_limit
+      });
+    });
+
+    // Sync statistics endpoint
+    this.app.get('/api/sync/stats', (req, res) => {
+      res.json({
+        total_processed: 0,
+        successful_imports: 0,
+        failed_transactions: 0,
+        pending_mappings: 0
+      });
+    });
+
     // Manual sync trigger endpoint
     this.app.post('/api/sync/trigger', async (req, res) => {
       try {
