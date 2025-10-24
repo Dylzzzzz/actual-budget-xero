@@ -1,0 +1,41 @@
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency directories
+.npm/
+
+# Optional npm cache directory
+.npm
+
+# IDE files
+.vscode/
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+
+# Environment files (just in case)
+.env
+.env.local
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+
+# Backup files
+*.backup
+*.bak

@@ -1,0 +1,12 @@
+# Add this to your Home Assistant configuration.yaml or automations.yaml
+
+automation:
+  - alias: "Start Actual Budget API on Boot"
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - service: shell_command.start_actual_budget_api
+        
+shell_command:
+  start_actual_budget_api: "cd /config/actual-budget-api && chmod +x startup.sh && ./startup.sh > /config/actual-budget-api/startup.log 2>&1 &"

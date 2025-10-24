@@ -1,0 +1,56 @@
+name: Actual-Xero Sync
+version: 1.1.9
+slug: actual_xero_sync_v3
+description: Sync business transactions from Actual Budget to Xero via Xano
+url: https://github.com/Dylzzzzz/actual-budget-api
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+init: false
+startup: services
+options:
+  # Actual Budget Configuration
+  actual_budget_url: "http://localhost:5006"
+  actual_budget_password: ""
+  business_category_group_id: ""
+  business_category_group_name: "Business Expenses"
+  
+  # Xano Configuration
+  xano_api_url: ""
+  xano_api_key: ""
+  xano_rate_limit: 18
+  
+  # Xero Configuration
+  xero_client_id: ""
+  xero_client_secret: ""
+  xero_tenant_id: ""
+  
+  # Sync Configuration
+  sync_schedule: "0 2 * * 1"
+  sync_days_back: 7
+  batch_size: 10
+  
+  # Logging Configuration
+  log_level: "info"
+  
+schema:
+  actual_budget_url: url
+  actual_budget_password: password
+  business_category_group_id: str?
+  business_category_group_name: str
+  xano_api_url: url
+  xano_api_key: password
+  xano_rate_limit: int(1,60)
+  xero_client_id: str
+  xero_client_secret: password
+  xero_tenant_id: str
+  sync_schedule: str
+  sync_days_back: int(1,30)
+  batch_size: int(1,50)
+  log_level: list(debug|info|warn|error)
+ports:
+  8080/tcp: 8080
+webui: http://[HOST]:[PORT:8080]

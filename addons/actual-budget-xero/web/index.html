@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Actual-Xero Sync</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Actual-Xero Sync</h1>
+            <p>Business transaction synchronization from Actual Budget to Xero</p>
+        </header>
+
+        <main>
+            <div class="status-section">
+                <h2>System Status</h2>
+                <div id="status-info" class="status-info">
+                    <div class="status-item">
+                        <span class="label">System:</span>
+                        <span id="system-status" class="value">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Last Sync:</span>
+                        <span id="last-sync" class="value">Never</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Configuration:</span>
+                        <span id="config-status" class="value">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Sync Status:</span>
+                        <span id="sync-status" class="value">Idle</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="label">Last Result:</span>
+                        <span id="last-result" class="value">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sync-stats-section">
+                <h2>Sync Statistics</h2>
+                <div id="sync-stats" class="sync-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="total-processed">0</span>
+                        <span class="stat-label">Total Processed</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="successful-imports">0</span>
+                        <span class="stat-label">Successful Imports</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="failed-transactions">0</span>
+                        <span class="stat-label">Failed Transactions</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="pending-mappings">0</span>
+                        <span class="stat-label">Pending Mappings</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions-section">
+                <h2>Actions</h2>
+                <div class="action-buttons">
+                    <button id="trigger-sync" class="btn btn-primary">
+                        <span class="btn-icon">▶</span>
+                        Trigger Manual Sync
+                    </button>
+                    <button id="trigger-reprocess" class="btn btn-warning">
+                        <span class="btn-icon">🔄</span>
+                        Reprocess Failed
+                    </button>
+                    <button id="refresh-status" class="btn btn-secondary">
+                        <span class="btn-icon">↻</span>
+                        Refresh Status
+                    </button>
+                </div>
+                <div id="sync-progress" class="sync-progress hidden">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div id="progress-text" class="progress-text">Initializing...</div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h2>Configuration</h2>
+                <div id="config-display" class="config-display">
+                    <div class="config-group">
+                        <h3>Actual Budget</h3>
+                        <div class="config-item">
+                            <span class="config-label">Server URL:</span>
+                            <span id="actual-url" class="config-value">-</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Category Group:</span>
+                            <span id="category-group" class="config-value">-</span>
+                        </div>
+                    </div>
+                    <div class="config-group">
+                        <h3>Sync Settings</h3>
+                        <div class="config-item">
+                            <span class="config-label">Schedule:</span>
+                            <span id="sync-schedule" class="config-value">-</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Days Back:</span>
+                            <span id="sync-days-back" class="config-value">-</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Batch Size:</span>
+                            <span id="batch-size" class="config-value">-</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Rate Limit:</span>
+                            <span id="rate-limit" class="config-value">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="logs-section">
+                <h2>Recent Activity</h2>
+                <div class="log-controls">
+                    <button id="clear-logs" class="btn btn-small">Clear Logs</button>
+                    <select id="log-filter" class="log-filter">
+                        <option value="all">All Messages</option>
+                        <option value="error">Errors Only</option>
+                        <option value="warning">Warnings</option>
+                        <option value="success">Success</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+                <div id="activity-log" class="activity-log">
+                    <p class="log-entry info">System initialized - waiting for status update</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
