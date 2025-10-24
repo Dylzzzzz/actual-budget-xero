@@ -362,9 +362,6 @@ class ActualXeroSyncUI {
             this.activityLog.removeChild(this.activityLog.lastChild);
         }
     }
-}
-
-// Initialize the UI when DOM is loaded
     showProgress(message) {
         this.progressElements.container.classList.remove('hidden');
         this.progressElements.text.textContent = message;
