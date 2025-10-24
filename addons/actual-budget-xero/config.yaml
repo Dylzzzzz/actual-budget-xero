@@ -1,5 +1,5 @@
 name: Actual-Xero Sync
-version: 1.2.1
+version: 1.2.2
 slug: actual_xero_sync_v3
 description: Sync business transactions from Actual Budget to Xero via Xano
 url: https://github.com/Dylzzzzz/actual-budget-api
@@ -33,6 +33,11 @@ options:
   sync_days_back: 7
   batch_size: 10
   
+  # Safety Configuration
+  dry_run_mode: true
+  test_mode: true
+  sync_to_xero: false
+  
   # Logging Configuration
   log_level: "info"
   
@@ -50,6 +55,9 @@ schema:
   sync_schedule: str
   sync_days_back: int(1,30)
   batch_size: int(1,50)
+  dry_run_mode: bool
+  test_mode: bool
+  sync_to_xero: bool
   log_level: list(debug|info|warn|error)
 ports:
   8080/tcp: 8080

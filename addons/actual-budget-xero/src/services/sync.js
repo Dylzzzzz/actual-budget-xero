@@ -79,14 +79,16 @@ class SyncService {
     try {
       this.logger.info('Starting Actual Budget to Xero sync process');
 
-      // Set default options
+      // Set default options with safety controls
       const syncOptions = {
         since: options.since || new Date(Date.now() - (this.config.sync_days_back || 7) * 24 * 60 * 60 * 1000),
         batchSize: options.batchSize || this.config.batch_size || 10,
-        dryRun: options.dryRun || false
+        dryRun: options.dryRun || this.config.dry_run_mode || false,
+        testMode: this.config.test_mode || false,
+        syncToXero: this.config.sync_to_xero !== false // Default to true unless explicitly disabled
       };
 
-      this.logger.info(`Sync options: since=${syncOptions.since.toISOString()}, batchSize=${syncOptions.batchSize}, dryRun=${syncOptions.dryRun}`);
+      this.logger.info(`Sync options: since=${syncOptions.since.toISOString()}, batchSize=${syncOptions.batchSize}, dryRun=${syncOptions.dryRun}, testMode=${syncOptions.testMode}, syncToXero=${syncOptions.syncToXero}`);
 
       // Step 1: Fetch reconciled transactions from Actual Budget
       const transactions = await this.fetchReconciledTransactions(syncOptions.since);
@@ -107,9 +109,11 @@ class SyncService {
       // Step 3: Resolve mappings for categories and payees
       const mappedTransactions = await this.resolveMappings(storedTransactions);
 
-      // Step 4: Import transactions to Xero (if not dry run)
-      if (!syncOptions.dryRun) {
+      // Step 4: Import transactions to Xero (with safety controls)
+      if (!syncOptions.dryRun && syncOptions.syncToXero) {
         await this.importTransactionsToXero(mappedTransactions, syncOptions.batchSize);
+      } else if (!syncOptions.syncToXero) {
+        this.logger.info(`Xero sync disabled: ${mappedTransactions.length} transactions stored in Xano only`);
       } else {
         this.logger.info(`Dry run mode: would have imported ${mappedTransactions.length} transactions to Xero`);
       }
