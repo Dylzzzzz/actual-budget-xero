@@ -672,12 +672,11 @@ class XanoClient extends BaseApiClient {
     return {
       actual_transaction_id: transaction.id,
       transaction_date: transaction.date,
-      created_date: new Date().toISOString(),
       amount: transaction.amount / 100, // Convert from cents to dollars
       description: transaction.notes || transaction.imported_description || '',
       actual_category_id: transaction.category,
       actual_payee_id: transaction.payee,
-      status: 'pending'
+      error_message: null // Optional field for error tracking
     };
   }
 
