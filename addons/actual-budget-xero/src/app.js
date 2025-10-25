@@ -43,6 +43,10 @@ class ActualXeroSyncApp {
     // Application state
     this.isShuttingDown = false;
     this.activeOperations = new Set();
+    
+    // Sync results storage
+    this.syncResults = new Map();
+    this.lastSyncResult = null;
   }
 
   /**
@@ -170,8 +174,9 @@ class ActualXeroSyncApp {
         config: this.config
       });
       
-      // Initialize Home Assistant service
+      // Initialize Home Assistant service and connect it to sync service
       this.services.haService.init();
+      this.services.haService.setSyncService(this.services.syncService);
       
       logger.info('All services initialized successfully');
       
@@ -245,12 +250,28 @@ class ActualXeroSyncApp {
 
     // Sync statistics endpoint
     this.app.get('/api/sync/stats', (req, res) => {
-      res.json({
-        total_processed: 0,
-        successful_imports: 0,
-        failed_transactions: 0,
-        pending_mappings: 0
-      });
+      if (this.lastSyncResult && this.lastSyncResult.statistics) {
+        const stats = this.lastSyncResult.statistics;
+        res.json({
+          total_processed: stats.totalProcessed || 0,
+          successful_imports: stats.importedToXero || 0,
+          failed_transactions: stats.failedTransactions || 0,
+          pending_mappings: Math.max(0, (stats.totalProcessed || 0) - (stats.mappedTransactions || 0)),
+          stored_xano: stats.storedInXano || 0,
+          duplicates_skipped: stats.duplicatesSkipped || 0,
+          last_sync: this.lastSyncResult.timestamp
+        });
+      } else {
+        res.json({
+          total_processed: 0,
+          successful_imports: 0,
+          failed_transactions: 0,
+          pending_mappings: 0,
+          stored_xano: 0,
+          duplicates_skipped: 0,
+          last_sync: null
+        });
+      }
     });
 
     // Manual sync trigger endpoint
@@ -258,18 +279,42 @@ class ActualXeroSyncApp {
       try {
         logger.info('Manual sync triggered via API');
         
+        // Generate sync ID for tracking
+        const syncId = Date.now().toString();
+        
         // Trigger sync through Home Assistant service for consistency
         const result = await this.services.haService.handleSyncTrigger('web_api');
         
         if (result.success) {
-          res.json({
+          // Store sync results for progress tracking
+          this.syncResults.set(syncId, {
+            status: 'completed',
+            result: result.result,
+            statistics: result.statistics,
             message: result.message,
-            syncId: Date.now().toString(), // Simple sync ID for tracking
             timestamp: new Date().toISOString()
           });
+          
+          // Update last sync result
+          this.lastSyncResult = this.syncResults.get(syncId);
+          
+          res.json({
+            message: result.message,
+            syncId: syncId,
+            timestamp: new Date().toISOString(),
+            statistics: result.statistics
+          });
         } else {
+          // Store failed sync result
+          this.syncResults.set(syncId, {
+            status: 'failed',
+            error: result.error,
+            timestamp: new Date().toISOString()
+          });
+          
           res.status(500).json({
             error: result.error,
+            syncId: syncId,
             timestamp: new Date().toISOString()
           });
         }
@@ -284,14 +329,35 @@ class ActualXeroSyncApp {
 
     // Sync progress endpoint
     this.app.get('/api/sync/progress/:syncId', (req, res) => {
-      // For now, return a simple completed status since we don't have real-time progress tracking
-      res.json({
-        syncId: req.params.syncId,
-        status: 'completed',
-        progress: 100,
-        message: 'Sync completed',
-        processed: 0
-      });
+      const syncId = req.params.syncId;
+      const syncResult = this.syncResults.get(syncId);
+      
+      if (syncResult) {
+        const stats = syncResult.statistics || {};
+        
+        res.json({
+          syncId: syncId,
+          status: syncResult.status,
+          progress: 100,
+          message: syncResult.message || (syncResult.status === 'completed' ? 'Sync completed' : 'Sync failed'),
+          processed: stats.totalProcessed || 0,
+          stored_xano: stats.storedInXano || 0,
+          duplicates_skipped: stats.duplicatesSkipped || 0,
+          mapped: stats.mappedTransactions || 0,
+          imported_xero: stats.importedToXero || 0,
+          failed: stats.failedTransactions || 0,
+          error: syncResult.error
+        });
+      } else {
+        // Fallback for unknown sync IDs
+        res.json({
+          syncId: syncId,
+          status: 'completed',
+          progress: 100,
+          message: 'Sync completed',
+          processed: 0
+        });
+      }
     });
 
     // Current sync status endpoint

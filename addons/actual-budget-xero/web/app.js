@@ -178,6 +178,22 @@ class ActualXeroSyncUI {
         this.statsElements.successfulImports.textContent = stats.successful_imports || 0;
         this.statsElements.failedTransactions.textContent = stats.failed_transactions || 0;
         this.statsElements.pendingMappings.textContent = stats.pending_mappings || 0;
+        
+        // Update additional stats if elements exist
+        const storedXanoElement = document.getElementById('stored-xano');
+        if (storedXanoElement) {
+            storedXanoElement.textContent = stats.stored_xano || 0;
+        }
+        
+        const duplicatesSkippedElement = document.getElementById('duplicates-skipped');
+        if (duplicatesSkippedElement) {
+            duplicatesSkippedElement.textContent = stats.duplicates_skipped || 0;
+        }
+        
+        // Update last sync time if available
+        if (stats.last_sync) {
+            this.statusElements.lastSync.textContent = new Date(stats.last_sync).toLocaleString();
+        }
     }
 
     updateConfigurationDisplay(config) {
@@ -321,9 +337,25 @@ class ActualXeroSyncUI {
         this.updateButtonState(this.buttons.triggerSync, false, 'Trigger Manual Sync');
         
         if (progress.status === 'completed') {
-            this.statusElements.lastResult.textContent = `Success (${progress.processed || 0} processed)`;
+            // Create detailed success message
+            const details = [];
+            if (progress.processed > 0) details.push(`${progress.processed} fetched`);
+            if (progress.stored_xano > 0) details.push(`${progress.stored_xano} stored in Xano`);
+            if (progress.duplicates_skipped > 0) details.push(`${progress.duplicates_skipped} duplicates skipped`);
+            if (progress.mapped > 0) details.push(`${progress.mapped} mapped`);
+            if (progress.imported_xero > 0) details.push(`${progress.imported_xero} imported to Xero`);
+            if (progress.failed > 0) details.push(`${progress.failed} failed`);
+            
+            const detailText = details.length > 0 ? ` (${details.join(', ')})` : '';
+            
+            this.statusElements.lastResult.textContent = `Success${detailText}`;
             this.statusElements.lastResult.className = 'value';
-            this.addLogEntry(`Sync completed successfully - ${progress.processed || 0} transactions processed`, 'success');
+            
+            // Add detailed log entry
+            const logMessage = progress.processed > 0 
+                ? `Sync completed successfully - ${details.join(', ')}`
+                : 'Sync completed successfully - no new transactions found';
+            this.addLogEntry(logMessage, 'success');
         } else {
             this.statusElements.lastResult.textContent = 'Failed';
             this.statusElements.lastResult.className = 'value error';

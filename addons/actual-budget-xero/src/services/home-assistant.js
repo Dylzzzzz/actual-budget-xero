@@ -80,23 +80,88 @@ class HomeAssistantService {
       this.updateSyncStatus('running');
       this.publishEvent('sync_started', { source });
       
-      // This would trigger the actual sync service
-      // For now, we'll simulate the sync process
-      await this.simulateSync();
+      // Get the sync service from the app instance
+      const syncService = this.getSyncService();
+      if (!syncService) {
+        throw new Error('Sync service not available');
+      }
+      
+      // Execute the actual sync with progress reporting
+      const startTime = Date.now();
+      const syncResult = await syncService.executeSync();
+      const duration = `${Math.round((Date.now() - startTime) / 1000)}s`;
+      
+      // Extract detailed statistics from sync result
+      const stats = syncResult.statistics || {};
+      const totalProcessed = stats.transactionsFetched || 0;
+      const storedInXano = stats.transactionsStored || 0;
+      const duplicatesSkipped = stats.duplicatesSkipped || 0;
+      const mappedTransactions = stats.transactionsMapped || 0;
+      const importedToXero = stats.transactionsImported || 0;
+      const failedTransactions = stats.transactionsFailed || 0;
       
       this.updateSyncStatus('completed');
       this.updateLastSync(new Date());
       this.incrementSyncCount();
       this.clearLastError();
       
+      // Publish detailed completion event
       this.publishEvent('sync_completed', { 
         source,
-        duration: '30s',
-        transactions_processed: 15
+        duration,
+        transactions_processed: totalProcessed,
+        transactions_stored_xano: storedInXano,
+        duplicates_skipped: duplicatesSkipped,
+        transactions_mapped: mappedTransactions,
+        transactions_imported_xero: importedToXero,
+        transactions_failed: failedTransactions,
+        success_rate: totalProcessed > 0 ? Math.round((storedInXano / totalProcessed) * 100) : 0
       });
       
-      logger.info('Manual sync completed successfully');
-      return { success: true, message: 'Sync completed successfully' };
+      // Create detailed summary message
+      const summaryParts = [];
+      if (totalProcessed > 0) {
+        summaryParts.push(`${totalProcessed} transactions fetched`);
+      }
+      if (storedInXano > 0) {
+        summaryParts.push(`${storedInXano} stored in Xano`);
+      }
+      if (duplicatesSkipped > 0) {
+        summaryParts.push(`${duplicatesSkipped} duplicates skipped`);
+      }
+      if (mappedTransactions > 0) {
+        summaryParts.push(`${mappedTransactions} mapped`);
+      }
+      if (importedToXero > 0) {
+        summaryParts.push(`${importedToXero} imported to Xero`);
+      }
+      if (failedTransactions > 0) {
+        summaryParts.push(`${failedTransactions} failed`);
+      }
+      
+      const summaryMessage = summaryParts.length > 0 
+        ? `Sync completed: ${summaryParts.join(', ')}`
+        : 'Sync completed successfully';
+      
+      logger.info('Manual sync completed successfully', { 
+        stats,
+        summary: summaryMessage 
+      });
+      
+      return { 
+        success: true, 
+        message: summaryMessage, 
+        result: syncResult,
+        statistics: {
+          totalProcessed,
+          storedInXano,
+          duplicatesSkipped,
+          mappedTransactions,
+          importedToXero,
+          failedTransactions,
+          duration
+        }
+      };
       
     } catch (error) {
       logger.error('Manual sync failed:', error);
@@ -220,16 +285,17 @@ class HomeAssistantService {
   }
 
   /**
-   * Simulate sync process (placeholder for actual sync service integration)
+   * Set the sync service reference (called by app during initialization)
    */
-  async simulateSync() {
-    // Simulate sync duration
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Randomly simulate success or failure for testing
-    if (Math.random() < 0.1) {
-      throw new Error('Simulated sync failure for testing');
-    }
+  setSyncService(syncService) {
+    this.syncService = syncService;
+  }
+
+  /**
+   * Get the sync service reference
+   */
+  getSyncService() {
+    return this.syncService;
   }
 
   /**
