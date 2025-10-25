@@ -279,7 +279,47 @@ class ActualBudgetClient extends BaseApiClient {
     }
 
     try {
-      const response = await this.get('/api/categories');
+      // Try different possible API endpoints for categories
+      let response;
+      let success = false;
+      
+      // Method 1: Try the standard API endpoint
+      try {
+        response = await this.get('/api/categories');
+        if (response.statusCode === 200 && typeof response.data !== 'string') {
+          success = true;
+        }
+      } catch (error) {
+        this.logger.debug(`/api/categories failed: ${error.message}`);
+      }
+      
+      // Method 2: Try sync endpoint for categories
+      if (!success) {
+        try {
+          response = await this.get('/sync/categories');
+          if (response.statusCode === 200 && typeof response.data !== 'string') {
+            success = true;
+          }
+        } catch (error) {
+          this.logger.debug(`/sync/categories failed: ${error.message}`);
+        }
+      }
+      
+      // Method 3: Try budget-specific endpoint
+      if (!success) {
+        try {
+          response = await this.get(`/api/budgets/${this.budgetId}/categories`);
+          if (response.statusCode === 200 && typeof response.data !== 'string') {
+            success = true;
+          }
+        } catch (error) {
+          this.logger.debug(`Budget-specific categories failed: ${error.message}`);
+        }
+      }
+      
+      if (!success) {
+        throw new Error('No valid categories API endpoint found - all endpoints returned HTML or failed');
+      }
       
       this.logger.info('Categories API response:', {
         statusCode: response.statusCode,
