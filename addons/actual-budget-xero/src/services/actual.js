@@ -446,6 +446,116 @@ class ActualBudgetClient extends BaseApiClient {
   }
 
   /**
+   * Find category group by name
+   * @param {string} groupName - Name of the category group to find
+   * @returns {Promise<Object|null>} - Category group object or null if not found
+   */
+  async findCategoryGroupByName(groupName) {
+    await this.ensureAuthenticated();
+    
+    // Auto-load the first available budget if none is loaded
+    if (!this.budgetId) {
+      await this.autoLoadBudget();
+    }
+
+    try {
+      const groups = await this.getCategoryGroups();
+      const group = groups.find(g => g.name === groupName);
+      
+      if (group) {
+        this.logger.info(`Found category group "${groupName}" with ID: ${group.id}`);
+        return group;
+      } else {
+        this.logger.warn(`Category group "${groupName}" not found. Available groups: ${groups.map(g => g.name).join(', ')}`);
+        return null;
+      }
+    } catch (error) {
+      this.logger.error(`Failed to find category group "${groupName}":`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get reconciled transactions for a category group
+   * @param {string} categoryGroupId - Category group ID
+   * @param {Date} since - Date to fetch transactions since
+   * @returns {Promise<Array>} - Array of reconciled transactions
+   */
+  async getReconciledTransactions(categoryGroupId, since) {
+    await this.ensureAuthenticated();
+    
+    // Auto-load the first available budget if none is loaded
+    if (!this.budgetId) {
+      await this.autoLoadBudget();
+    }
+
+    try {
+      this.logger.info(`Fetching reconciled transactions for category group ${categoryGroupId} since ${since.toISOString()}`);
+
+      // Get categories in the group
+      const categories = await this.getCategories(categoryGroupId);
+      const categoryIds = categories.map(cat => cat.id);
+
+      if (categoryIds.length === 0) {
+        this.logger.warn(`No categories found in group ${categoryGroupId}`);
+        return [];
+      }
+
+      this.logger.info(`Found ${categoryIds.length} categories in group ${categoryGroupId}`);
+
+      // Get transactions for these categories
+      const response = await this.get('/api/transactions', {
+        queryParams: {
+          since: since.toISOString(),
+          reconciled: true
+        }
+      });
+
+      let transactions = response.data || [];
+
+      // Filter transactions by category group and date
+      transactions = transactions.filter(transaction => {
+        const transactionDate = new Date(transaction.date);
+        return categoryIds.includes(transaction.category) && 
+               transactionDate >= since &&
+               transaction.cleared === true; // Only reconciled/cleared transactions
+      });
+
+      this.logger.info(`Retrieved ${transactions.length} reconciled transactions for category group ${categoryGroupId}`);
+      return transactions;
+    } catch (error) {
+      this.logger.error(`Failed to get reconciled transactions for group ${categoryGroupId}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Auto-load the first available budget
+   * @returns {Promise<boolean>} - Success status
+   */
+  async autoLoadBudget() {
+    try {
+      this.logger.info('Auto-loading first available budget');
+      
+      const budgets = await this.getBudgets();
+      
+      if (budgets.length === 0) {
+        throw new Error('No budgets available to load');
+      }
+
+      // Load the first budget
+      const firstBudget = budgets[0];
+      await this.loadBudget(firstBudget.id);
+      
+      this.logger.info(`Auto-loaded budget: ${firstBudget.name || firstBudget.id}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to auto-load budget:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Test connection to Actual Budget server
    * @returns {Promise<boolean>} - Connection success
    */
