@@ -134,14 +134,43 @@ class ActualBudgetClient extends BaseApiClient {
     
     try {
       const response = await this.get('/sync/list-user-files');
-      const budgets = response.data || [];
       
       this.logger.debug('Raw budgets response:', {
         statusCode: response.statusCode,
         dataType: typeof response.data,
-        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
-        firstBudget: budgets[0] ? Object.keys(budgets[0]) : 'no budgets'
+        isArray: Array.isArray(response.data),
+        data: response.data
       });
+      
+      // Handle different possible response formats
+      let budgets = [];
+      
+      if (Array.isArray(response.data)) {
+        budgets = response.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // If it's an object, try to extract budgets from common properties
+        if (response.data.files) {
+          budgets = response.data.files;
+        } else if (response.data.budgets) {
+          budgets = response.data.budgets;
+        } else if (response.data.data) {
+          budgets = Array.isArray(response.data.data) ? response.data.data : [];
+        } else {
+          // Convert object to array if it has budget-like properties
+          budgets = [response.data];
+        }
+      }
+      
+      // Ensure we return an array
+      if (!Array.isArray(budgets)) {
+        this.logger.warn('Budgets response is not an array, converting to empty array');
+        budgets = [];
+      }
+      
+      this.logger.info(`Found ${budgets.length} budgets`);
+      if (budgets.length > 0) {
+        this.logger.debug('First budget structure:', Object.keys(budgets[0]));
+      }
       
       return budgets;
     } catch (error) {
