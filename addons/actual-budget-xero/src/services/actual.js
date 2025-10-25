@@ -28,10 +28,20 @@ class ActualBudgetClient extends BaseApiClient {
    */
   async authenticate() {
     try {
-      this.logger.info('Authenticating with Actual Budget server');
+      this.logger.info('Authenticating with Actual Budget server', {
+        url: this.baseUrl,
+        passwordLength: this.password ? this.password.length : 0
+      });
       
       const response = await this.post('/account/login', {
         password: this.password
+      });
+
+      this.logger.debug('Authentication response:', {
+        statusCode: response.statusCode,
+        hasData: !!response.data,
+        dataType: typeof response.data,
+        dataKeys: response.data ? Object.keys(response.data) : []
       });
 
       if (response.data && response.data.token) {
@@ -41,12 +51,49 @@ class ActualBudgetClient extends BaseApiClient {
         this.logger.info('Successfully authenticated with Actual Budget');
         return true;
       } else {
+        this.logger.error('Authentication failed - no token in response:', {
+          responseData: response.data,
+          statusCode: response.statusCode
+        });
         throw new Error('No token received from authentication');
       }
     } catch (error) {
-      this.logger.error('Failed to authenticate with Actual Budget:', error.message);
+      this.logger.error('Failed to authenticate with Actual Budget:', {
+        message: error.message,
+        statusCode: error.statusCode,
+        url: this.baseUrl,
+        passwordProvided: !!this.password
+      });
       this.isAuthenticated = false;
       throw error;
+    }
+  }
+
+  /**
+   * Test connectivity to Actual Budget server
+   * @returns {Promise<boolean>} - Connectivity test result
+   */
+  async testConnectivity() {
+    try {
+      this.logger.info('Testing connectivity to Actual Budget server', { url: this.baseUrl });
+      
+      // Try a simple GET request to see if the server is reachable
+      const response = await this.get('/');
+      
+      this.logger.info('Connectivity test successful', {
+        statusCode: response.statusCode,
+        url: this.baseUrl
+      });
+      
+      return true;
+    } catch (error) {
+      this.logger.error('Connectivity test failed', {
+        message: error.message,
+        code: error.code,
+        url: this.baseUrl
+      });
+      
+      return false;
     }
   }
 
@@ -56,6 +103,12 @@ class ActualBudgetClient extends BaseApiClient {
    */
   async ensureAuthenticated() {
     if (!this.isAuthenticated) {
+      // Test connectivity first
+      const isConnected = await this.testConnectivity();
+      if (!isConnected) {
+        throw new Error(`Cannot connect to Actual Budget server at ${this.baseUrl}. Please check the URL and ensure the server is running.`);
+      }
+      
       await this.authenticate();
     }
   }

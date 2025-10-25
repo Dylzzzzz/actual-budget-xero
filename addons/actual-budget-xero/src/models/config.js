@@ -178,7 +178,7 @@ class ConfigValidator {
    * @returns {Object} - Parsed configuration object
    */
   static parseHomeAssistantOptions(options) {
-    return {
+    const config = {
       actual_budget_url: options.actual_budget_url,
       actual_budget_password: options.actual_budget_password,
       business_category_group_id: options.business_category_group_id || '',
@@ -197,6 +197,20 @@ class ConfigValidator {
       sync_to_xero: options.sync_to_xero === true, // Default to false for safety
       log_level: options.log_level || 'info'
     };
+    
+    // Debug: Log configuration values (without sensitive data)
+    console.log('Parsed HA config:', {
+      actual_budget_url: config.actual_budget_url,
+      actual_budget_password: config.actual_budget_password ? `[${config.actual_budget_password.length} chars]` : 'EMPTY',
+      business_category_group_name: config.business_category_group_name,
+      xano_api_url: config.xano_api_url ? 'SET' : 'EMPTY',
+      xano_api_key: config.xano_api_key ? `[${config.xano_api_key.length} chars]` : 'EMPTY',
+      dry_run_mode: config.dry_run_mode,
+      test_mode: config.test_mode,
+      sync_to_xero: config.sync_to_xero
+    });
+    
+    return config;
   }
 
   /**
