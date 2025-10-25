@@ -280,14 +280,59 @@ class ActualBudgetClient extends BaseApiClient {
 
     try {
       const response = await this.get('/api/categories');
-      let categories = response.data || [];
+      
+      this.logger.debug('Categories response:', {
+        statusCode: response.statusCode,
+        dataType: typeof response.data,
+        isArray: Array.isArray(response.data),
+        dataKeys: response.data ? Object.keys(response.data) : []
+      });
+      
+      let categories = [];
+      
+      // Handle different possible response formats
+      if (Array.isArray(response.data)) {
+        categories = response.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // Try to extract categories from nested structure
+        if (response.data.categories) {
+          categories = Array.isArray(response.data.categories) ? response.data.categories : [];
+        } else if (response.data.data) {
+          categories = Array.isArray(response.data.data) ? response.data.data : [];
+        } else {
+          // Convert object values to array if they look like categories
+          const values = Object.values(response.data);
+          if (values.length > 0 && values[0] && typeof values[0] === 'object') {
+            categories = values;
+          }
+        }
+      }
+      
+      // Ensure we have an array
+      if (!Array.isArray(categories)) {
+        this.logger.warn('Categories response is not an array, converting to empty array');
+        categories = [];
+      }
 
       // Filter by group ID if specified
-      if (groupId) {
-        categories = categories.filter(category => category.cat_group === groupId);
+      if (groupId && categories.length > 0) {
+        const originalLength = categories.length;
+        categories = categories.filter(category => 
+          category.cat_group === groupId || 
+          category.categoryGroup === groupId ||
+          category.group_id === groupId ||
+          category.groupId === groupId
+        );
+        
+        this.logger.debug(`Filtered categories from ${originalLength} to ${categories.length} for group ${groupId}`);
       }
 
       this.logger.info(`Retrieved ${categories.length} categories${groupId ? ` for group ${groupId}` : ''}`);
+      
+      if (categories.length > 0) {
+        this.logger.debug('First category structure:', Object.keys(categories[0]));
+      }
+      
       return categories;
     } catch (error) {
       this.logger.error('Failed to get categories:', error.message);
