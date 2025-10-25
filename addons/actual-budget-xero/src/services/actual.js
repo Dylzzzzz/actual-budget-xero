@@ -281,7 +281,7 @@ class ActualBudgetClient extends BaseApiClient {
     try {
       const response = await this.get('/api/categories');
       
-      this.logger.debug('Categories response:', {
+      this.logger.info('Categories API response:', {
         statusCode: response.statusCode,
         dataType: typeof response.data,
         isArray: Array.isArray(response.data),
@@ -321,7 +321,7 @@ class ActualBudgetClient extends BaseApiClient {
         const originalCategories = [...categories]; // Keep original for logging
         
         // Log all categories to see their structure
-        this.logger.debug('All categories before filtering:', originalCategories.map(cat => ({
+        this.logger.info('All categories before filtering:', originalCategories.map(cat => ({
           id: cat.id,
           name: cat.name,
           cat_group: cat.cat_group,
@@ -338,7 +338,7 @@ class ActualBudgetClient extends BaseApiClient {
           category.groupId === groupId
         );
         
-        this.logger.debug(`Filtered categories from ${originalLength} to ${categories.length} for group ${groupId}`);
+        this.logger.info(`Filtered categories from ${originalLength} to ${categories.length} for group ${groupId}`);
         
         if (categories.length === 0) {
           this.logger.warn(`No categories found for group ${groupId}. Available group IDs in categories:`, 
@@ -350,7 +350,9 @@ class ActualBudgetClient extends BaseApiClient {
       this.logger.info(`Retrieved ${categories.length} categories${groupId ? ` for group ${groupId}` : ''}`);
       
       if (categories.length > 0) {
-        this.logger.debug('First category structure:', Object.keys(categories[0]));
+        this.logger.info('First category structure:', Object.keys(categories[0]));
+      } else {
+        this.logger.info('No categories found in response - this might be why no transactions are detected');
       }
       
       return categories;
