@@ -44,11 +44,23 @@ class ActualBudgetClient extends BaseApiClient {
         dataKeys: response.data ? Object.keys(response.data) : []
       });
 
-      if (response.data && response.data.token) {
-        this.token = response.data.token;
+      // Handle both possible response formats from Actual Budget
+      let token = null;
+      if (response.data && response.data.data && response.data.data.token) {
+        // Nested format: { status: "ok", data: { token: "..." } }
+        token = response.data.data.token;
+      } else if (response.data && response.data.token) {
+        // Direct format: { token: "..." }
+        token = response.data.token;
+      }
+
+      if (token) {
+        this.token = token;
         this.defaultHeaders['X-ACTUAL-TOKEN'] = this.token;
         this.isAuthenticated = true;
-        this.logger.info('Successfully authenticated with Actual Budget');
+        this.logger.info('Successfully authenticated with Actual Budget', {
+          tokenLength: token.length
+        });
         return true;
       } else {
         this.logger.error('Authentication failed - no token in response:', {
