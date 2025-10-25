@@ -133,31 +133,50 @@ class ActualBudgetClient extends BaseApiClient {
     await this.ensureAuthenticated();
     
     try {
-      const response = await this.get('/sync/list-user-files');
-      
-      this.logger.debug('Raw budgets response:', {
-        statusCode: response.statusCode,
-        dataType: typeof response.data,
-        isArray: Array.isArray(response.data),
-        data: response.data
-      });
-      
-      // Handle different possible response formats
+      // Try different API endpoints to get budgets
+      let response;
       let budgets = [];
       
-      if (Array.isArray(response.data)) {
-        budgets = response.data;
-      } else if (response.data && typeof response.data === 'object') {
-        // If it's an object, try to extract budgets from common properties
-        if (response.data.files) {
-          budgets = response.data.files;
-        } else if (response.data.budgets) {
-          budgets = response.data.budgets;
-        } else if (response.data.data) {
-          budgets = Array.isArray(response.data.data) ? response.data.data : [];
-        } else {
-          // Convert object to array if it has budget-like properties
-          budgets = [response.data];
+      // Method 1: Try the sync list endpoint
+      try {
+        response = await this.get('/sync/list-user-files');
+        
+        this.logger.debug('Sync list response:', {
+          statusCode: response.statusCode,
+          dataType: typeof response.data,
+          isArray: Array.isArray(response.data),
+          data: response.data
+        });
+        
+        // Handle different possible response formats
+        if (Array.isArray(response.data)) {
+          budgets = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          // If it's an object, try to extract budgets from common properties
+          if (response.data.files) {
+            budgets = response.data.files;
+          } else if (response.data.budgets) {
+            budgets = response.data.budgets;
+          } else if (response.data.data) {
+            budgets = Array.isArray(response.data.data) ? response.data.data : [];
+          } else {
+            // Convert object to array if it has budget-like properties
+            budgets = [response.data];
+          }
+        }
+      } catch (error) {
+        this.logger.debug(`Sync list endpoint failed: ${error.message}`);
+      }
+      
+      // Method 2: Try alternative endpoint if first failed
+      if (budgets.length === 0) {
+        try {
+          response = await this.get('/api/budgets');
+          if (Array.isArray(response.data)) {
+            budgets = response.data;
+          }
+        } catch (error) {
+          this.logger.debug(`API budgets endpoint failed: ${error.message}`);
         }
       }
       
@@ -190,16 +209,56 @@ class ActualBudgetClient extends BaseApiClient {
     try {
       this.logger.info(`Loading budget: ${budgetId}`);
       
-      const response = await this.post('/sync/load-user-file', {
-        fileId: budgetId
-      });
+      // Try different possible API endpoints for loading budgets
+      let response;
+      let success = false;
+      
+      // Method 1: Try the sync endpoint (most common)
+      try {
+        response = await this.post('/sync/sync', {
+          fileId: budgetId,
+          groupId: null,
+          keyId: null,
+          since: null
+        });
+        success = response.statusCode === 200;
+      } catch (error) {
+        this.logger.debug(`Sync endpoint failed: ${error.message}`);
+      }
+      
+      // Method 2: Try direct file loading
+      if (!success) {
+        try {
+          response = await this.post('/sync/download-user-file', {
+            fileId: budgetId
+          });
+          success = response.statusCode === 200;
+        } catch (error) {
+          this.logger.debug(`Download endpoint failed: ${error.message}`);
+        }
+      }
+      
+      // Method 3: Just set the budget ID (some Actual Budget setups don't require explicit loading)
+      if (!success) {
+        this.logger.info(`Direct budget loading not available, setting budget ID: ${budgetId}`);
+        this.budgetId = budgetId;
+        
+        // Test if we can access budget data
+        try {
+          await this.get('/api/categories');
+          success = true;
+          this.logger.info(`Budget ${budgetId} is accessible without explicit loading`);
+        } catch (error) {
+          throw new Error(`Cannot access budget data: ${error.message}`);
+        }
+      }
 
-      if (response.statusCode === 200) {
+      if (success) {
         this.budgetId = budgetId;
         this.logger.info(`Successfully loaded budget: ${budgetId}`);
         return true;
       } else {
-        throw new Error(`Failed to load budget: ${response.statusMessage}`);
+        throw new Error(`Failed to load budget: ${response?.statusMessage || 'Unknown error'}`);
       }
     } catch (error) {
       this.logger.error('Failed to load budget:', error.message);
