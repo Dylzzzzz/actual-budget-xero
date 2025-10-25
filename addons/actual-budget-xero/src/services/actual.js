@@ -134,7 +134,16 @@ class ActualBudgetClient extends BaseApiClient {
     
     try {
       const response = await this.get('/sync/list-user-files');
-      return response.data || [];
+      const budgets = response.data || [];
+      
+      this.logger.debug('Raw budgets response:', {
+        statusCode: response.statusCode,
+        dataType: typeof response.data,
+        dataLength: Array.isArray(response.data) ? response.data.length : 'not array',
+        firstBudget: budgets[0] ? Object.keys(budgets[0]) : 'no budgets'
+      });
+      
+      return budgets;
     } catch (error) {
       this.logger.error('Failed to get budgets:', error.message);
       throw error;
@@ -543,11 +552,24 @@ class ActualBudgetClient extends BaseApiClient {
         throw new Error('No budgets available to load');
       }
 
-      // Load the first budget
+      // Debug: Log budget structure
+      this.logger.debug('Available budgets:', budgets.map(b => ({
+        keys: Object.keys(b),
+        id: b.id || b.fileId || b.name,
+        name: b.name || b.fileName || 'Unknown'
+      })));
+
+      // Load the first budget - try different possible ID fields
       const firstBudget = budgets[0];
-      await this.loadBudget(firstBudget.id);
+      const budgetId = firstBudget.id || firstBudget.fileId || firstBudget.name;
       
-      this.logger.info(`Auto-loaded budget: ${firstBudget.name || firstBudget.id}`);
+      if (!budgetId) {
+        throw new Error(`Cannot determine budget ID from budget object: ${JSON.stringify(firstBudget)}`);
+      }
+
+      await this.loadBudget(budgetId);
+      
+      this.logger.info(`Auto-loaded budget: ${firstBudget.name || firstBudget.fileName || budgetId}`);
       return true;
     } catch (error) {
       this.logger.error('Failed to auto-load budget:', error.message);
