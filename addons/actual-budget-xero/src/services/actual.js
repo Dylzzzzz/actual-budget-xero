@@ -283,11 +283,25 @@ class ActualBudgetClient extends BaseApiClient {
       let response;
       let success = false;
       
-      // Use the correct Actual Budget SDK method
-      response = await this.post('/api/getCategories', {});
+      // Try sync-based approach since other APIs don't work
+      response = await this.post('/sync/sync', {
+        fileId: this.budgetId,
+        groupId: null,
+        keyId: null,
+        since: null,
+        messages: [
+          {
+            dataset: 'categories',
+            row: null,
+            column: null,
+            value: null,
+            timestamp: Date.now()
+          }
+        ]
+      });
       
       if (response.statusCode !== 200 || typeof response.data === 'string') {
-        throw new Error('getCategories method failed or returned HTML');
+        throw new Error('Sync-based categories request failed or returned HTML');
       }
       
       this.logger.info('Categories API response:', {
@@ -667,88 +681,59 @@ class ActualBudgetClient extends BaseApiClient {
     try {
       this.logger.info(`Fetching reconciled transactions for category group ${categoryGroupId} since ${since.toISOString()}`);
 
-      // Try to get transactions directly first, then filter by category group
-      let transactions = [];
-      let transactionResponse;
-      let success = false;
-
-      // Method 1: Try standard transactions API
+      // Since API endpoints don't work, let's try a sync-based approach to get all data
+      this.logger.info('Attempting to get all budget data via sync mechanism');
+      
       try {
-        transactionResponse = await this.get('/api/transactions');
-        if (transactionResponse.statusCode === 200 && typeof transactionResponse.data !== 'string') {
-          transactions = Array.isArray(transactionResponse.data) ? transactionResponse.data : [];
-          success = true;
-          this.logger.info(`Got ${transactions.length} transactions from /api/transactions`);
-        }
-      } catch (error) {
-        this.logger.debug(`/api/transactions failed: ${error.message}`);
-      }
-
-      // Method 2: Try sync-based transactions
-      if (!success) {
-        try {
-          transactionResponse = await this.get('/sync/transactions');
-          if (transactionResponse.statusCode === 200 && typeof transactionResponse.data !== 'string') {
-            transactions = Array.isArray(transactionResponse.data) ? transactionResponse.data : [];
-            success = true;
-            this.logger.info(`Got ${transactions.length} transactions from /sync/transactions`);
-          }
-        } catch (error) {
-          this.logger.debug(`/sync/transactions failed: ${error.message}`);
-        }
-      }
-
-      // Method 3: Try budget-specific transactions
-      if (!success) {
-        try {
-          transactionResponse = await this.get(`/api/budgets/${this.budgetId}/transactions`);
-          if (transactionResponse.statusCode === 200 && typeof transactionResponse.data !== 'string') {
-            transactions = Array.isArray(transactionResponse.data) ? transactionResponse.data : [];
-            success = true;
-            this.logger.info(`Got ${transactions.length} transactions from budget-specific endpoint`);
-          }
-        } catch (error) {
-          this.logger.debug(`Budget-specific transactions failed: ${error.message}`);
-        }
-      }
-
-      if (!success) {
-        this.logger.warn('No transactions API endpoint worked, trying to get categories anyway...');
+        // Try to get all budget data using sync
+        const syncResponse = await this.post('/sync/sync', {
+          fileId: this.budgetId,
+          groupId: null,
+          keyId: null,
+          since: 0, // Get all data
+          messages: []
+        });
         
-        // Fallback: Try to get categories and filter
-        try {
-          const categories = await this.getCategories(categoryGroupId);
-          const categoryIds = categories.map(cat => cat.id);
-
-          if (categoryIds.length === 0) {
-            this.logger.warn(`No categories found in group ${categoryGroupId}`);
-            return [];
+        this.logger.info('Sync response received:', {
+          statusCode: syncResponse.statusCode,
+          dataType: typeof syncResponse.data,
+          hasData: !!syncResponse.data
+        });
+        
+        if (syncResponse.data && typeof syncResponse.data === 'object') {
+          // Look for transactions in the sync response
+          let allTransactions = [];
+          
+          if (syncResponse.data.transactions) {
+            allTransactions = syncResponse.data.transactions;
+          } else if (syncResponse.data.data && syncResponse.data.data.transactions) {
+            allTransactions = syncResponse.data.data.transactions;
+          } else if (Array.isArray(syncResponse.data)) {
+            allTransactions = syncResponse.data;
           }
-
-          this.logger.info(`Found ${categoryIds.length} categories in group ${categoryGroupId}, but no transactions API available`);
-          return []; // Can't get transactions without API
-        } catch (categoryError) {
-          this.logger.error('Both transactions and categories APIs failed');
-          return [];
+          
+          this.logger.info(`Found ${allTransactions.length} total transactions in sync data`);
+          
+          // Filter for reconciled transactions since the date
+          const reconciledTransactions = allTransactions.filter(transaction => {
+            const transactionDate = new Date(transaction.date);
+            return transactionDate >= since && 
+                   (transaction.cleared === true || transaction.reconciled === true);
+          });
+          
+          this.logger.info(`Found ${reconciledTransactions.length} reconciled transactions since ${since.toISOString()}`);
+          
+          // For now, return all reconciled transactions (we'll add category filtering later)
+          if (reconciledTransactions.length > 0) {
+            this.logger.info('Sample transaction structure:', Object.keys(reconciledTransactions[0]));
+            return reconciledTransactions;
+          }
         }
+      } catch (syncError) {
+        this.logger.error('Sync-based data retrieval failed:', syncError.message);
       }
-
-      // Filter transactions by date and reconciled status
-      const filteredTransactions = transactions.filter(transaction => {
-        const transactionDate = new Date(transaction.date);
-        return transactionDate >= since && 
-               (transaction.cleared === true || transaction.reconciled === true);
-      });
-
-      this.logger.info(`Found ${filteredTransactions.length} reconciled transactions since ${since.toISOString()}`);
-
-      // If we have transactions but no category filtering, return all reconciled ones
-      // This is better than returning nothing
-      if (filteredTransactions.length > 0) {
-        this.logger.info(`Returning ${filteredTransactions.length} reconciled transactions (category filtering may be applied later)`);
-        return filteredTransactions;
-      }
-
+      
+      this.logger.warn('No method worked to retrieve transactions - API may not be available');
       return [];
     } catch (error) {
       this.logger.error(`Failed to get reconciled transactions for group ${categoryGroupId}:`, error.message);
