@@ -283,42 +283,11 @@ class ActualBudgetClient extends BaseApiClient {
       let response;
       let success = false;
       
-      // Method 1: Try the standard API endpoint
-      try {
-        response = await this.get('/api/categories');
-        if (response.statusCode === 200 && typeof response.data !== 'string') {
-          success = true;
-        }
-      } catch (error) {
-        this.logger.debug(`/api/categories failed: ${error.message}`);
-      }
+      // Use the correct Actual Budget SDK method
+      response = await this.post('/api/getCategories', {});
       
-      // Method 2: Try sync endpoint for categories
-      if (!success) {
-        try {
-          response = await this.get('/sync/categories');
-          if (response.statusCode === 200 && typeof response.data !== 'string') {
-            success = true;
-          }
-        } catch (error) {
-          this.logger.debug(`/sync/categories failed: ${error.message}`);
-        }
-      }
-      
-      // Method 3: Try budget-specific endpoint
-      if (!success) {
-        try {
-          response = await this.get(`/api/budgets/${this.budgetId}/categories`);
-          if (response.statusCode === 200 && typeof response.data !== 'string') {
-            success = true;
-          }
-        } catch (error) {
-          this.logger.debug(`Budget-specific categories failed: ${error.message}`);
-        }
-      }
-      
-      if (!success) {
-        throw new Error('No valid categories API endpoint found - all endpoints returned HTML or failed');
+      if (response.statusCode !== 200 || typeof response.data === 'string') {
+        throw new Error('getCategories method failed or returned HTML');
       }
       
       this.logger.info('Categories API response:', {
@@ -372,10 +341,7 @@ class ActualBudgetClient extends BaseApiClient {
         })));
         
         categories = categories.filter(category => 
-          category.cat_group === groupId || 
-          category.categoryGroup === groupId ||
-          category.group_id === groupId ||
-          category.groupId === groupId
+          category.group_id === groupId
         );
         
         this.logger.info(`Filtered categories from ${originalLength} to ${categories.length} for group ${groupId}`);
@@ -414,7 +380,12 @@ class ActualBudgetClient extends BaseApiClient {
     }
 
     try {
-      const response = await this.get('/api/category-groups');
+      const response = await this.post('/api/getCategoryGroups', {});
+      
+      if (response.statusCode !== 200 || typeof response.data === 'string') {
+        throw new Error('getCategoryGroups method failed or returned HTML');
+      }
+      
       const groups = response.data || [];
       
       this.logger.info(`Retrieved ${groups.length} category groups`);
