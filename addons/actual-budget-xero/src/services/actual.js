@@ -285,7 +285,8 @@ class ActualBudgetClient extends BaseApiClient {
         statusCode: response.statusCode,
         dataType: typeof response.data,
         isArray: Array.isArray(response.data),
-        dataKeys: response.data ? Object.keys(response.data) : []
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        fullData: response.data // Log the full response to see structure
       });
       
       let categories = [];
@@ -317,6 +318,19 @@ class ActualBudgetClient extends BaseApiClient {
       // Filter by group ID if specified
       if (groupId && categories.length > 0) {
         const originalLength = categories.length;
+        const originalCategories = [...categories]; // Keep original for logging
+        
+        // Log all categories to see their structure
+        this.logger.debug('All categories before filtering:', originalCategories.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          cat_group: cat.cat_group,
+          categoryGroup: cat.categoryGroup,
+          group_id: cat.group_id,
+          groupId: cat.groupId,
+          allKeys: Object.keys(cat)
+        })));
+        
         categories = categories.filter(category => 
           category.cat_group === groupId || 
           category.categoryGroup === groupId ||
@@ -325,6 +339,12 @@ class ActualBudgetClient extends BaseApiClient {
         );
         
         this.logger.debug(`Filtered categories from ${originalLength} to ${categories.length} for group ${groupId}`);
+        
+        if (categories.length === 0) {
+          this.logger.warn(`No categories found for group ${groupId}. Available group IDs in categories:`, 
+            [...new Set(originalCategories.map(cat => cat.cat_group || cat.categoryGroup || cat.group_id || cat.groupId).filter(Boolean))]
+          );
+        }
       }
 
       this.logger.info(`Retrieved ${categories.length} categories${groupId ? ` for group ${groupId}` : ''}`);
