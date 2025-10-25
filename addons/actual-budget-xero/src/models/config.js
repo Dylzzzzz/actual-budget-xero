@@ -86,6 +86,22 @@ class ConfigValidator {
         'number.max': 'Batch size cannot exceed 50'
       }),
     
+    // Safety Configuration
+    dry_run_mode: Joi.boolean().default(true)
+      .messages({
+        'boolean.base': 'Dry run mode must be true or false'
+      }),
+    
+    test_mode: Joi.boolean().default(true)
+      .messages({
+        'boolean.base': 'Test mode must be true or false'
+      }),
+    
+    sync_to_xero: Joi.boolean().default(false)
+      .messages({
+        'boolean.base': 'Sync to Xero must be true or false'
+      }),
+    
     // Logging Configuration
     log_level: Joi.string().valid('debug', 'info', 'warn', 'error').default('info')
       .messages({
@@ -154,6 +170,33 @@ class ConfigValidator {
     }
     
     return null;
+  }
+
+  /**
+   * Parse Home Assistant options into configuration format
+   * @param {Object} options - Raw options from Home Assistant
+   * @returns {Object} - Parsed configuration object
+   */
+  static parseHomeAssistantOptions(options) {
+    return {
+      actual_budget_url: options.actual_budget_url,
+      actual_budget_password: options.actual_budget_password,
+      business_category_group_id: options.business_category_group_id || '',
+      business_category_group_name: options.business_category_group_name,
+      xano_api_url: options.xano_api_url,
+      xano_api_key: options.xano_api_key,
+      xano_rate_limit: parseInt(options.xano_rate_limit) || 18,
+      xero_client_id: options.xero_client_id,
+      xero_client_secret: options.xero_client_secret,
+      xero_tenant_id: options.xero_tenant_id,
+      sync_schedule: options.sync_schedule || '0 2 * * 1',
+      sync_days_back: parseInt(options.sync_days_back) || 7,
+      batch_size: parseInt(options.batch_size) || 10,
+      dry_run_mode: options.dry_run_mode !== false, // Default to true for safety
+      test_mode: options.test_mode !== false, // Default to true for safety
+      sync_to_xero: options.sync_to_xero === true, // Default to false for safety
+      log_level: options.log_level || 'info'
+    };
   }
 
   /**
